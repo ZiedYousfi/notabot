@@ -3,7 +3,7 @@
 ## 07/09/2025
 
 -- **1h**
-- [ ] Préparatiod l'architecture du projet
+- [ ] Préparation de l'architecture du projet
 - [ ] Choix des technologies
 - [ ] Mise en place de l'environnement de développement
 - [ ] Création du dépôt GitHub
