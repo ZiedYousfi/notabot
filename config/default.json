@@ -1,0 +1,57 @@
+{
+  "sources": [
+    {
+      "type": "file",
+      "path": "C:/Users/Public/enigo_event.json"
+    }
+  ],
+  "actions": {
+    "focus_app": {
+      "type": "focus_window",
+      "title_contains": "Notepad"
+    },
+    "type_message": {
+      "type": "type_text",
+      "text": "{{message}}"
+    },
+    "press_enter": {
+      "type": "key_seq",
+      "text": "{ENTER}"
+    },
+    "pause": {
+      "type": "sleep_ms",
+      "ms": 500
+    },
+    "random_pause": {
+      "type": "sleep_rand_ms",
+      "min": 100,
+      "max": 300
+    },
+    "log_message": {
+      "type": "log",
+      "level": "info",
+      "message": "Processing message: {{message}}"
+    }
+  },
+  "workflows": {
+    "send_message": [
+      "log_message",
+      "focus_app",
+      "pause",
+      "type_message",
+      "random_pause",
+      "press_enter"
+    ]
+  },
+  "events": {
+    "send_text": {
+      "workflow": "send_message",
+      "vars_map": {
+        "message": "text"
+      }
+    }
+  },
+  "globals": {
+    "app_name": "Notepad"
+  }
+}
