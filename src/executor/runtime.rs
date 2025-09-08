@@ -1,9 +1,9 @@
 use anyhow::{Context, Result, bail};
 use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use tracing::{debug, info, trace, warn};
 
-use crate::config::{ActionDef, Config, EventBinding, LogLevel};
+use crate::config::{ActionDef, Config, EventBinding};
 use crate::executor::actions::ActionExecutor;
 use crate::utils::interpolation;
 
@@ -303,6 +303,7 @@ fn get_json_path<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::LogLevel;
     use serde_json::json;
 
     #[test]
@@ -342,7 +343,7 @@ mod tests {
         let mut cfg = Config::default();
         cfg.globals
             .insert("app".into(), Value::String("Notabot".into()));
-        let mut rt = Runtime::new(cfg, true);
+        let rt = Runtime::new(cfg, true);
         let mut vars = HashMap::new();
         vars.insert("user".into(), "Alice".into());
 

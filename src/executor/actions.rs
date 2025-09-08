@@ -1,5 +1,7 @@
 use anyhow::{Context, Result};
-use enigo::{Axis, Button as EButton, Coordinate, Direction, Enigo, Keyboard, Mouse, Settings};
+use enigo::Keyboard as _;
+use enigo::Mouse as _;
+use enigo::{Axis, Button as EButton, Coordinate, Direction, Enigo, Settings};
 use rand::random_range;
 use std::thread;
 use std::time::Duration;
@@ -43,7 +45,7 @@ impl ActionExecutor {
         }
         let enigo = self.ensure_enigo()?;
         trace!(target: "notabot::actions", x, y, "mouse_move_to");
-        enigo.move_mouse(x, y, Coordinate::Abs);
+        enigo.move_mouse(x, y, Coordinate::Abs)?;
         Ok(())
     }
 
@@ -58,7 +60,7 @@ impl ActionExecutor {
         let btn = map_mouse_button(button);
         trace!(target: "notabot::actions", ?button, count, "mouse_click");
         for _ in 0..count {
-            enigo.button(btn, Direction::Click);
+            enigo.button(btn, Direction::Click)?;
         }
         Ok(())
     }
@@ -73,10 +75,10 @@ impl ActionExecutor {
         let enigo = self.ensure_enigo()?;
         trace!(target: "notabot::actions", delta_x, delta_y, "mouse_scroll");
         if delta_x != 0 {
-            enigo.scroll(delta_x, Axis::Horizontal);
+            let _ = enigo.scroll(delta_x, Axis::Horizontal);
         }
         if delta_y != 0 {
-            enigo.scroll(delta_y, Axis::Vertical);
+            let _ = enigo.scroll(delta_y, Axis::Vertical);
         }
         Ok(())
     }
@@ -89,7 +91,7 @@ impl ActionExecutor {
         }
         let enigo = self.ensure_enigo()?;
         trace!(target: "notabot::actions", %text, "key_sequence");
-        enigo.text(text);
+        let _ = enigo.text(text);
         Ok(())
     }
 
@@ -102,7 +104,7 @@ impl ActionExecutor {
         }
         let enigo = self.ensure_enigo()?;
         trace!(target: "notabot::actions", %text, "type_text");
-        enigo.text(text);
+        let _ = enigo.text(text);
         Ok(())
     }
 
