@@ -7,3 +7,6 @@
 - [X] Choix des technologies
 - [X] Mise en place de l'environnement de développement
 - [X] Création du dépôt GitHub
+
+-- **A définir**
+- [ ] Implementation des fonctionnalités de base
