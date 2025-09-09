@@ -13,3 +13,8 @@
 - [x] Utilitaire d'interpolation ({{var}} / {{@global}})
 - [x] Exécuteur d'actions (mode dry‑run) et runtime de workflows
 - [x] CLI minimale et wiring des sources (stubs)
+
+## 09/09/2025
+
+** A definir **
+- [ ] Ajout lecture depuis les sources (fichiers, API, etc.)
