@@ -25,8 +25,8 @@
 //! This module is intentionally independent and only relies on the public trait
 //! `EventSource` defined in `mod.rs`.
 
+use std::fs;
 use std::time::{Duration, SystemTime};
-use std::{fs};
 
 use serde_json::Value;
 use tokio::{

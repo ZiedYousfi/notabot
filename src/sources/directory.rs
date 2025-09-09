@@ -6,12 +6,7 @@ use std::{
 };
 
 use serde_json::Value;
-use tokio::{
-    fs as afs,
-    sync::mpsc::Sender,
-    task::JoinHandle,
-    time::{ interval},
-};
+use tokio::{fs as afs, sync::mpsc::Sender, task::JoinHandle, time::interval};
 use tracing::{error, info, trace, warn};
 
 use super::EventSource;
