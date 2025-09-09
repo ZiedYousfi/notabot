@@ -12,15 +12,17 @@ Typical usage:
 - Call `Runtime::run_event` with an incoming JSON event, or `run_workflow_by_name` directly.
 
 Example:
-    use notabot::config::{self, Config};
-    use notabot::executor::Runtime;
-    use serde_json::json;
+```no_run
+use notabot::config::{self, Config};
+use notabot::executor::Runtime;
+use serde_json::json;
 
-    // Load config (omitted) then:
-    let cfg: Config = Default::default();
-    let mut rt = Runtime::new(cfg, true); // dry-run mode
-    let event = json!({"type": "send_text", "text": "Hello"});
-    // rt.run_event(&event)?;
+// Load config (omitted) then:
+let cfg: Config = Default::default();
+let mut rt = Runtime::new(cfg, true); // dry-run mode
+let event = json!({"type": "send_text", "text": "Hello"});
+// rt.run_event(&event)?;
+```
 
 Public re-exports:
 - `ActionExecutor`: performs low-level actions (respecting dry-run).
