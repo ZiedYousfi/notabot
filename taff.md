@@ -16,5 +16,8 @@
 
 ## 09/09/2025
 
-** 1H **
+**1H**
 - [x] Ajout lecture depuis les sources (fichiers, API, etc.)
+
+**1H**
+- [x] Debug HAHA

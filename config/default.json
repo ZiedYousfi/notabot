@@ -35,12 +35,12 @@
   },
   "workflows": {
     "send_message": [
-      "log_message",
-      "focus_app",
-      "pause",
-      "type_message",
-      "random_pause",
-      "press_enter"
+      { "type": "ref", "name": "log_message" },
+      { "type": "ref", "name": "focus_app" },
+      { "type": "ref", "name": "pause" },
+      { "type": "ref", "name": "type_message" },
+      { "type": "ref", "name": "random_pause" },
+      { "type": "ref", "name": "press_enter" }
     ]
   },
   "events": {
