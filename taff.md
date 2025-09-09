@@ -16,5 +16,5 @@
 
 ## 09/09/2025
 
-** A definir **
-- [ ] Ajout lecture depuis les sources (fichiers, API, etc.)
+** 1H **
+- [x] Ajout lecture depuis les sources (fichiers, API, etc.)

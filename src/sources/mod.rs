@@ -1,43 +1,71 @@
 /*!
-Event sources module.
+Event sources module (orchestration layer).
 
-This module defines a common `EventSource` trait and basic stubs for concrete sources
-(File, Directory, TCP). Each source can be started and will emit JSON events through
-a shared `tokio::sync::mpsc::Sender<serde_json::Value>`.
+This module only defines the core `EventSource` trait and orchestration helpers
+(`build_sources_from_config`, `spawn_all_sources`). Concrete implementations now
+live in their own files:
 
-Notes:
-- The implementations provided here are placeholders (no-op). They only log that
-  they were started and then exit. Replace with real implementations as needed.
-- Use `build_sources_from_config` to construct sources from the configuration file.
+- `file.rs`      -> `FileSource`     (poll a single JSON file)
+- `directory.rs` -> `DirectorySource` (poll / (future) watch a directory of JSON files)
+- `tcp.rs`       -> `TcpSource`      (newline-delimited JSON over TCP)
+- `stdin_source.rs` -> `StdinSource`    (newline-delimited JSON from standard input)
+
+Each source implementation is responsible for:
+- Parsing raw input into `serde_json::Value`
+- Pushing events via `Sender<Value>` while respecting backpressure (`send().await`)
+- Logging errors and continuing (never panicking inside tasks)
+- Being cancellation-safe (task ends cleanly when channel closes / loop breaks)
+
+Adding a new source:
+1. Create `src/sources/your_source.rs`
+2. Implement a `YourSource` struct + `impl EventSource`
+3. Expose with `pub use self::your_source::YourSource;`
+4. Extend `build_sources_from_config` match on `SourceConfig`
+
+This keeps `mod.rs` lean and focused on wiring, making each source simpler to
+maintain and test in isolation.
 */
 
 use serde_json::Value;
-use tokio::sync::mpsc::Sender;
-use tokio::task::JoinHandle;
-use tracing::{info, warn};
+use tokio::{sync::mpsc::Sender, task::JoinHandle};
+use tracing::info;
 
 use crate::config::{Config, SourceConfig};
 
-/// A running producer of JSON events.
+pub mod directory;
+pub mod file;
+pub mod stdin_source;
+pub mod tcp;
+
+pub use directory::DirectorySource;
+pub use file::FileSource;
+pub use stdin_source::StdinSource;
+pub use tcp::TcpSource;
+
+/// Trait implemented by all event sources.
 ///
-/// Implementations should push parsed events into the provided `Sender<Value>`.
-/// They should run asynchronously until completion or cancellation.
+/// A source is expected to spawn an asynchronous task that produces JSON events
+/// and sends them into the provided channel. Tasks should never panic; log and
+/// continue or exit gracefully on unrecoverable errors.
 pub trait EventSource: Send + Sync {
-    /// A human-readable name for this source (for logs/diagnostics).
+    /// Static human-readable identifier (used in logs).
     fn name(&self) -> &'static str;
 
-    /// Start the source in the background and return a `JoinHandle`.
+    /// Start the source in the background.
     ///
-    /// Implementations should:
-    /// - clone any necessary state
-    /// - spawn a `tokio::task` that emits events via the channel
-    /// - log useful startup information
+    /// Implementations typically:
+    /// - clone internal state
+    /// - spawn a `tokio::task`
+    /// - loop, producing events
+    /// - exit when channel is closed or unrecoverable error occurs
     fn start(&self, sender: Sender<Value>) -> JoinHandle<()>;
 }
 
-/// Build boxed sources from the loaded `Config`.
+/// Construct all configured sources.
 ///
-/// Currently supports `file`, `directory`, and `tcp`. `stdin` is logged and skipped.
+/// Notes:
+/// - If a `stdin` source is present it will be added (only one usually makes sense).
+/// - Order of sources in the returned vector is the same as in the config.
 pub fn build_sources_from_config(cfg: &Config) -> Vec<Box<dyn EventSource>> {
     let mut out: Vec<Box<dyn EventSource>> = Vec::new();
 
@@ -47,29 +75,28 @@ pub fn build_sources_from_config(cfg: &Config) -> Vec<Box<dyn EventSource>> {
                 path,
                 poll_ms,
                 delete_on_success,
-            } => {
-                out.push(Box::new(FileSource::new(
-                    path.clone(),
-                    *poll_ms,
-                    *delete_on_success,
-                )));
-            }
+            } => out.push(Box::new(FileSource::new(
+                path.clone(),
+                *poll_ms,
+                *delete_on_success,
+            ))),
+
             SourceConfig::Directory {
                 path,
                 pattern,
                 recursive,
-            } => {
-                out.push(Box::new(DirectorySource::new(
-                    path.clone(),
-                    pattern.clone(),
-                    recursive.unwrap_or(false),
-                )));
-            }
+            } => out.push(Box::new(DirectorySource::new(
+                path.clone(),
+                pattern.clone(),
+                recursive.unwrap_or(false),
+            ))),
+
             SourceConfig::Tcp { bind, ack } => {
                 out.push(Box::new(TcpSource::new(bind.clone(), ack.unwrap_or(true))));
             }
+
             SourceConfig::Stdin => {
-                warn!(target: "notabot::sources", "stdin source is not implemented yet; skipping");
+                out.push(Box::new(StdinSource::new()));
             }
         }
     }
@@ -77,9 +104,11 @@ pub fn build_sources_from_config(cfg: &Config) -> Vec<Box<dyn EventSource>> {
     out
 }
 
-/// Spawn all sources, returning their `JoinHandle`s.
+/// Spawn every source, returning their `JoinHandle`s.
 ///
-/// Each source receives a cloned `Sender<Value>`.
+/// The caller may store these if it wishes to monitor or await their termination.
+/// Typically the application just keeps them detached and relies on process
+/// lifetime / Ctrl+C for shutdown.
 pub fn spawn_all_sources(
     sources: &[Box<dyn EventSource>],
     sender: Sender<Value>,
@@ -87,129 +116,12 @@ pub fn spawn_all_sources(
     sources
         .iter()
         .map(|src| {
-            let s = sender.clone();
-            info!(target: "notabot::sources", source = %src.name(), "Starting source");
-            src.start(s)
+            info!(
+                target: "notabot::sources",
+                source = %src.name(),
+                "Starting source task"
+            );
+            src.start(sender.clone())
         })
         .collect()
-}
-
-/// File-based event source (stub).
-///
-/// Intended behavior (to implement):
-/// - Poll a single file path at a fixed interval (ms)
-/// - When content is present, parse as JSON and send into the channel
-/// - Optionally delete the file on success
-#[derive(Debug, Clone)]
-pub struct FileSource {
-    path: String,
-    poll_ms: u64,
-    delete_on_success: bool,
-}
-
-impl FileSource {
-    pub fn new(path: String, poll_ms: Option<u64>, delete_on_success: Option<bool>) -> Self {
-        Self {
-            path,
-            poll_ms: poll_ms.unwrap_or(100),
-            delete_on_success: delete_on_success.unwrap_or(false),
-        }
-    }
-}
-
-impl EventSource for FileSource {
-    fn name(&self) -> &'static str {
-        "file"
-    }
-
-    fn start(&self, _sender: Sender<Value>) -> JoinHandle<()> {
-        let path = self.path.clone();
-        let poll_ms = self.poll_ms;
-        let del = self.delete_on_success;
-        tokio::spawn(async move {
-            warn!(
-                target: "notabot::sources",
-                %path, poll_ms, delete_on_success = del,
-                "FileSource is not implemented yet; exiting stub task"
-            );
-        })
-    }
-}
-
-/// Directory-based event source (stub).
-///
-/// Intended behavior (to implement):
-/// - Watch a directory for new files (optionally filtered by pattern)
-/// - Read/parse each file as JSON and send into the channel
-/// - Consider FIFO processing and safe delete/move on success
-#[derive(Debug, Clone)]
-pub struct DirectorySource {
-    path: String,
-    pattern: Option<String>,
-    recursive: bool,
-}
-
-impl DirectorySource {
-    pub fn new(path: String, pattern: Option<String>, recursive: bool) -> Self {
-        Self {
-            path,
-            pattern,
-            recursive,
-        }
-    }
-}
-
-impl EventSource for DirectorySource {
-    fn name(&self) -> &'static str {
-        "directory"
-    }
-
-    fn start(&self, _sender: Sender<Value>) -> JoinHandle<()> {
-        let path = self.path.clone();
-        let pattern = self.pattern.clone();
-        let recursive = self.recursive;
-        tokio::spawn(async move {
-            warn!(
-                target: "notabot::sources",
-                %path, ?pattern, recursive,
-                "DirectorySource is not implemented yet; exiting stub task"
-            );
-        })
-    }
-}
-
-/// TCP-based event source (stub).
-///
-/// Intended behavior (to implement):
-/// - Bind to the given address (e.g., 127.0.0.1:5000)
-/// - Accept connections and parse newline-delimited JSON events
-/// - Optionally write ACK/ERROR responses
-#[derive(Debug, Clone)]
-pub struct TcpSource {
-    bind: String,
-    ack: bool,
-}
-
-impl TcpSource {
-    pub fn new(bind: String, ack: bool) -> Self {
-        Self { bind, ack }
-    }
-}
-
-impl EventSource for TcpSource {
-    fn name(&self) -> &'static str {
-        "tcp"
-    }
-
-    fn start(&self, _sender: Sender<Value>) -> JoinHandle<()> {
-        let bind = self.bind.clone();
-        let ack = self.ack;
-        tokio::spawn(async move {
-            warn!(
-                target: "notabot::sources",
-                %bind, ack,
-                "TcpSource is not implemented yet; exiting stub task"
-            );
-        })
-    }
 }
