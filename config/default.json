@@ -12,7 +12,7 @@
   "actions": {
     "focus_notepad": {
       "type": "focus_window",
-      "title_contains": "Notepad"
+      "title_contains": "zsh"
     },
 
     "type_message": {
