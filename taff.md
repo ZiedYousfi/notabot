@@ -21,3 +21,8 @@
 
 **1H**
 - [x] Debug HAHA
+
+## 12/09/2025
+
+**1H**
+- [x] Test de fonctionnement de l'outil avec un exemple simple

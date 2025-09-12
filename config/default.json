@@ -1,57 +1,156 @@
 {
   "sources": [
+    { "type": "file", "path": "./tests/events/sample_event.json" },
     {
-      "type": "file",
-      "path": "C:/Users/Public/enigo_event.json"
-    }
+      "type": "directory",
+      "path": "./tests/events/incoming",
+      "pattern": "*.json"
+    },
+    { "type": "tcp", "bind": "0.0.0.0:6000" }
   ],
+
   "actions": {
-    "focus_app": {
+    "focus_notepad": {
       "type": "focus_window",
       "title_contains": "Notepad"
     },
+
     "type_message": {
       "type": "type_text",
       "text": "{{message}}"
     },
+
+    "type_welcome": {
+      "type": "type_text",
+      "text": "Welcome back, {{username}}!"
+    },
+
+    "prompt_register": {
+      "type": "type_text",
+      "text": "Please register to proceed."
+    },
+
+    "user_logged_in": {
+      "type": "type_text",
+      "text": "User {{username}} logged in."
+    },
+
     "press_enter": {
       "type": "key_seq",
       "text": "{ENTER}"
     },
+
     "pause": {
       "type": "sleep_ms",
-      "ms": 500
+      "ms": 250
     },
+
     "random_pause": {
       "type": "sleep_rand_ms",
       "min": 100,
-      "max": 300
+      "max": 400
     },
+
     "log_message": {
       "type": "log",
       "level": "info",
       "message": "Processing message: {{message}}"
+    },
+
+    "move_cursor": {
+      "type": "mouse_move",
+      "x": 120,
+      "y": 340
+    },
+
+    "click_left": {
+      "type": "mouse_click",
+      "button": "left"
+    },
+
+    "set_username": {
+      "type": "set_var",
+      "name": "username",
+      "value": "{{user}}"
+    },
+
+    "check_screen_ocr": {
+      "type": "ocr_check",
+      "region": [0, 0, 800, 200],
+      "must_contain": "ERROR"
+    },
+
+    "take_screenshot": {
+      "type": "capture_screen",
+      "path": "{{screenshot_dir}}/capture_{{timestamp}}.png",
+      "region": [10, 10, 300, 200]
+    },
+
+    "nested_sequence": {
+      "type": "sequence",
+      "steps": [
+        { "type": "ref", "name": "log_message" },
+        { "type": "sleep_ms", "ms": 100 },
+        { "type": "ref", "name": "move_cursor" },
+        { "type": "ref", "name": "click_left" }
+      ]
+    },
+
+    "conditional_reply": {
+      "type": "conditional",
+      "when": "user_exists",
+      "equals": "true",
+      "then": {
+        "type": "sequence",
+        "steps": [
+          { "type": "ref", "name": "log_message" },
+          { "type": "ref", "name": "type_welcome" }
+        ]
+      },
+      "else": { "type": "ref", "name": "prompt_register" }
     }
   },
+
   "workflows": {
     "send_message": [
       { "type": "ref", "name": "log_message" },
-      { "type": "ref", "name": "focus_app" },
+      { "type": "ref", "name": "focus_notepad" },
       { "type": "ref", "name": "pause" },
       { "type": "ref", "name": "type_message" },
       { "type": "ref", "name": "random_pause" },
       { "type": "ref", "name": "press_enter" }
-    ]
+    ],
+
+    "on_login": [
+      { "type": "ref", "name": "set_username" },
+      { "type": "ref", "name": "log_message" },
+      { "type": "ref", "name": "user_logged_in" },
+      { "type": "ref", "name": "conditional_reply" }
+    ],
+
+    "quick_mouse": [{ "type": "ref", "name": "nested_sequence" }]
   },
+
   "events": {
-    "send_text": {
+    "send_text_event": {
       "workflow": "send_message",
-      "vars_map": {
-        "message": "text"
-      }
+      "vars_map": { "message": "text" }
+    },
+
+    "user_login": {
+      "workflow": "on_login",
+      "vars_map": { "user": "username", "user_exists": "exists_flag" }
+    },
+
+    "ocr_trigger": {
+      "workflow": "quick_mouse",
+      "vars_map": {}
     }
   },
+
   "globals": {
-    "app_name": "Notepad"
+    "app_name": "Notepad",
+    "screenshot_dir": "./artifacts/screenshots",
+    "default_timeout_ms": "5000"
   }
 }

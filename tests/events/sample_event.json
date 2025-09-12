@@ -1,0 +1,4 @@
+{
+  "type": "send_text_event",
+  "text": "Hello from sample_event.json"
+}
